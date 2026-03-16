@@ -43,6 +43,10 @@ public class ExecutionService {
             "Task " + currentTask.getTaskId() + " (" + currentTask.getTaskName() + ") executed with status " + executionStatus
         );
 
+        if (isSuccess) {
+            moveToNextTask(instance);
+        }
+
         if (!isSuccess) {
             instance.setStatus(WorkflowInstance.STATE_FAILED);
             instance.addHistory("Workflow instance marked as FAILED after task failure");
@@ -55,6 +59,25 @@ public class ExecutionService {
         if (task != null && status != null && !status.isBlank()) {
             task.setStatus(status);
         }
+    }
+
+    public void moveToNextTask(WorkflowInstance instance) {
+        if (instance == null || instance.getWorkflow() == null) {
+            return;
+        }
+
+        int currentTaskId = instance.getCurrentTask();
+        List<Integer> nextTaskIds = instance.getWorkflow().getNextTasks(currentTaskId);
+
+        if (nextTaskIds.isEmpty()) {
+            instance.setStatus(WorkflowInstance.STATE_COMPLETED);
+            instance.addHistory("No next task from " + currentTaskId + ". Workflow marked COMPLETED");
+            return;
+        }
+
+        int nextTaskId = nextTaskIds.get(0);
+        instance.setCurrentTask(nextTaskId);
+        instance.addHistory("Transitioned from task " + currentTaskId + " to task " + nextTaskId);
     }
 
     private Task identifyCurrentTask(WorkflowInstance instance) {
