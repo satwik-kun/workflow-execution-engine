@@ -38,6 +38,16 @@ public class Workflow {
         return new ArrayList<>(tasks);
     }
 
+    public Task getTaskById(int taskId) {
+        for (Task task : tasks) {
+            if (task.getTaskId() == taskId) {
+                return task;
+            }
+        }
+
+        return null;
+    }
+
     public List<Integer> getNextTasks(int taskId) {
         return new ArrayList<>(transitions.getOrDefault(taskId, new ArrayList<>()));
     }
