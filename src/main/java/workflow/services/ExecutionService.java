@@ -14,7 +14,11 @@ public class ExecutionService {
     private final Random random;
 
     public ExecutionService() {
-        this.random = new Random();
+        this(new Random());
+    }
+
+    public ExecutionService(Random random) {
+        this.random = random;
     }
 
     public void execute(WorkflowInstance workflowInstance) {
