@@ -15,6 +15,8 @@ public class WorkflowInstance {
     private int currentTaskId;
     private String state;
     private final List<String> executionHistory;
+    private int retryCount;
+    private String lastFailureDetails;
 
     public WorkflowInstance(int instanceId, Workflow workflow) {
         this.instanceId = instanceId;
@@ -22,6 +24,8 @@ public class WorkflowInstance {
         this.currentTaskId = -1;
         this.state = STATE_CREATED;
         this.executionHistory = new ArrayList<>();
+        this.retryCount = 0;
+        this.lastFailureDetails = "";
     }
 
     public int getInstanceId() {
@@ -50,6 +54,26 @@ public class WorkflowInstance {
 
     public List<String> getHistory() {
         return Collections.unmodifiableList(executionHistory);
+    }
+
+    public int getRetryCount() {
+        return retryCount;
+    }
+
+    public void incrementRetryCount() {
+        retryCount++;
+    }
+
+    public void resetRetryCount() {
+        retryCount = 0;
+    }
+
+    public String getLastFailureDetails() {
+        return lastFailureDetails;
+    }
+
+    public void setLastFailureDetails(String lastFailureDetails) {
+        this.lastFailureDetails = lastFailureDetails == null ? "" : lastFailureDetails;
     }
 
     public String getState() {

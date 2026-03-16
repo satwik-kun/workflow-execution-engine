@@ -29,6 +29,16 @@ public class ExecutionService {
             return false;
         }
 
+        if (WorkflowInstance.STATE_COMPLETED.equals(instance.getState())) {
+            instance.addHistory("Execution skipped because workflow is already COMPLETED");
+            return false;
+        }
+
+        if (WorkflowInstance.STATE_FAILED.equals(instance.getState())) {
+            instance.addHistory("Execution skipped because workflow is already FAILED");
+            return false;
+        }
+
         Task currentTask = identifyCurrentTask(instance);
         if (currentTask == null) {
             instance.addHistory("No executable task found for instance " + instance.getInstanceId());
@@ -44,15 +54,19 @@ public class ExecutionService {
         );
 
         if (isSuccess) {
+            instance.resetRetryCount();
+            instance.setLastFailureDetails("");
             moveToNextTask(instance);
+            return true;
         }
 
-        if (!isSuccess) {
-            instance.setStatus(WorkflowInstance.STATE_FAILED);
-            instance.addHistory("Workflow instance marked as FAILED after task failure");
-        }
+        instance.setStatus(WorkflowInstance.STATE_RUNNING);
+        instance.setLastFailureDetails(
+            "Task " + currentTask.getTaskId() + " (" + currentTask.getTaskName() + ") failed during execution"
+        );
+        instance.addHistory("Task failure recorded. Retry handling may continue execution.");
 
-        return isSuccess;
+        return false;
     }
 
     public void updateTaskState(Task task, String status) {
@@ -99,6 +113,9 @@ public class ExecutionService {
 
         for (Task task : tasks) {
             if (task.getTaskId() == currentTaskId) {
+                if (TASK_STATUS_PENDING.equalsIgnoreCase(task.getStatus())) {
+                    updateTaskState(task, TASK_STATUS_PENDING);
+                }
                 return task;
             }
         }
