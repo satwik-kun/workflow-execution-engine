@@ -12,13 +12,23 @@ public class ExecutionService {
     private static final String TASK_STATUS_FAILURE = "FAILURE";
 
     private final Random random;
+    private final boolean deterministicDemoMode;
 
     public ExecutionService() {
-        this(new Random());
+        this(new Random(), false);
+    }
+
+    public ExecutionService(boolean deterministicDemoMode) {
+        this(new Random(), deterministicDemoMode);
     }
 
     public ExecutionService(Random random) {
+        this(random, false);
+    }
+
+    public ExecutionService(Random random, boolean deterministicDemoMode) {
         this.random = random;
+        this.deterministicDemoMode = deterministicDemoMode;
     }
 
     public void execute(WorkflowInstance workflowInstance) {
@@ -49,7 +59,9 @@ public class ExecutionService {
             return false;
         }
 
-        boolean isSuccess = random.nextBoolean();
+        boolean isSuccess = deterministicDemoMode
+            ? evaluateDeterministicOutcome(instance, currentTask)
+            : random.nextBoolean();
         String executionStatus = isSuccess ? TASK_STATUS_SUCCESS : TASK_STATUS_FAILURE;
         updateTaskState(currentTask, executionStatus);
 
@@ -125,5 +137,15 @@ public class ExecutionService {
         }
 
         return null;
+    }
+
+    private boolean evaluateDeterministicOutcome(WorkflowInstance instance, Task currentTask) {
+        if (currentTask.getTaskId() == 1
+            && TASK_STATUS_PENDING.equalsIgnoreCase(currentTask.getStatus())
+            && instance.getRetryCount() == 0) {
+            return false;
+        }
+
+        return true;
     }
 }
