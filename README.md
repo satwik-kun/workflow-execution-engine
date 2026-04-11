@@ -33,6 +33,21 @@ src/test/java/workflow
 scripts
 
 - demo-run.ps1: automated demo runner script
+- team-demo.ps1: team launcher (checks requirements, starts backend/UI, runs demo)
+
+ui
+
+- React + Vite frontend for workflow control and monitoring
+
+## Team Quick Start
+
+Read [REQUIREMENTS.md](REQUIREMENTS.md) and run:
+
+```powershell
+.\scripts\team-demo.ps1
+```
+
+This will verify dependencies, start backend/UI if needed, and run a full API walkthrough.
 
 ## Requirements
 
@@ -80,6 +95,18 @@ On Windows PowerShell:
 ```powershell
 .\mvnw.cmd spring-boot:run
 ```
+
+## Run UI
+
+In a separate terminal:
+
+```bash
+cd ui
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173`.
 
 Base URL: `http://localhost:8080/api`
 
