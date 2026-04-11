@@ -1,6 +1,7 @@
-package workflow.services;
+package workflow.unit.services;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Random;
@@ -8,44 +9,45 @@ import org.junit.jupiter.api.Test;
 import workflow.models.Task;
 import workflow.models.Workflow;
 import workflow.models.WorkflowInstance;
+import workflow.services.ExecutionService;
 
-class RetryServiceTest {
+class ExecutionServiceTest {
     @Test
-    void handleFailure_whenRetryEventuallySucceeds_keepsWorkflowRunning() {
+    void executeTask_whenSuccessful_movesToNextTask() {
         Workflow workflow = buildTwoTaskWorkflow();
         WorkflowInstance instance = new WorkflowInstance(1, workflow);
         instance.start();
         instance.setCurrentTask(1);
 
-        ExecutionService executionService = new ExecutionService(new ScriptedRandom(false, true));
-        RetryService retryService = new RetryService(executionService);
+        ExecutionService executionService = new ExecutionService(new ScriptedRandom(true));
 
-        retryService.handleFailure(instance);
+        boolean result = executionService.executeTask(instance);
 
+        assertTrue(result);
         assertEquals(2, instance.getCurrentTask());
+        assertEquals("SUCCESS", workflow.getTaskById(1).getStatus());
         assertEquals(WorkflowInstance.STATE_RUNNING, instance.getState());
-        assertEquals(0, instance.getRetryCount());
-        assertTrue(instance.getHistory().stream().anyMatch(event -> event.contains("recovered successfully")));
     }
 
     @Test
-    void handleFailure_whenRetriesExhausted_marksWorkflowFailed() {
+    void executeTask_whenFailure_recordsFailureDetails() {
         Workflow workflow = buildTwoTaskWorkflow();
         WorkflowInstance instance = new WorkflowInstance(1, workflow);
         instance.start();
         instance.setCurrentTask(1);
 
-        ExecutionService executionService = new ExecutionService(new ScriptedRandom(false, false, false));
-        RetryService retryService = new RetryService(executionService);
+        ExecutionService executionService = new ExecutionService(new ScriptedRandom(false));
 
-        retryService.handleFailure(instance);
+        boolean result = executionService.executeTask(instance);
 
-        assertEquals(WorkflowInstance.STATE_FAILED, instance.getState());
-        assertTrue(instance.getHistory().stream().anyMatch(event -> event.contains("Retry limit reached")));
+        assertFalse(result);
+        assertEquals("FAILURE", workflow.getTaskById(1).getStatus());
+        assertEquals(WorkflowInstance.STATE_RUNNING, instance.getState());
+        assertTrue(instance.getLastFailureDetails().contains("failed during execution"));
     }
 
     private Workflow buildTwoTaskWorkflow() {
-        Workflow workflow = new Workflow(1001, "Retry Workflow");
+        Workflow workflow = new Workflow(1001, "Test Workflow");
         workflow.addTask(new Task(1, "Start", "EMPLOYEE", "PENDING"));
         workflow.addTask(new Task(2, "End", "OPS", "PENDING"));
         workflow.addTransition(1, 2);

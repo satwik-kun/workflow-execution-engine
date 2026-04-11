@@ -1,4 +1,4 @@
-package workflow.api;
+package workflow.integration.api;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -21,12 +21,12 @@ import org.springframework.http.ResponseEntity;
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = {
-        "spring.datasource.url=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=LEGACY",
+        "spring.datasource.url=jdbc:h2:mem:testdb-it;DB_CLOSE_DELAY=-1;MODE=LEGACY",
         "spring.jpa.hibernate.ddl-auto=create-drop",
         "workflow.execution.demo-mode=true"
     }
 )
-class WorkflowApiIntegrationTest {
+class WorkflowApiIT {
     @LocalServerPort
     private int port;
 
@@ -113,6 +113,74 @@ class WorkflowApiIntegrationTest {
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertEquals("VALIDATION_ERROR", response.getBody().get("code"));
         assertNotNull(response.getBody().get("message"));
+    }
+
+    @Test
+    void createWorkflow_withDuplicateTaskIds_shouldReturnBadRequest() {
+        String baseUrl = "http://localhost:" + port + "/api";
+
+        Map<String, Object> duplicateTaskRequest = Map.of(
+            "workflowName", "Duplicate Task Workflow",
+            "tasks", List.of(
+                Map.of("taskId", 1, "taskName", "Submit", "assignedRole", "EMPLOYEE"),
+                Map.of("taskId", 1, "taskName", "Approve", "assignedRole", "MANAGER")
+            ),
+            "transitions", List.of(
+                Map.of("fromTaskId", 1, "toTaskId", 2)
+            )
+        );
+
+        ResponseEntity<Map> response = post(baseUrl + "/workflows", duplicateTaskRequest, Map.class);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("BAD_REQUEST", response.getBody().get("code"));
+        assertTrue(((String) response.getBody().get("message")).contains("Duplicate taskId"));
+    }
+
+    @Test
+    void createWorkflow_withSelfLoopTransition_shouldReturnBadRequest() {
+        String baseUrl = "http://localhost:" + port + "/api";
+
+        Map<String, Object> selfLoopRequest = Map.of(
+            "workflowName", "Self Loop Workflow",
+            "tasks", List.of(
+                Map.of("taskId", 1, "taskName", "Submit", "assignedRole", "EMPLOYEE")
+            ),
+            "transitions", List.of(
+                Map.of("fromTaskId", 1, "toTaskId", 1)
+            )
+        );
+
+        ResponseEntity<Map> response = post(baseUrl + "/workflows", selfLoopRequest, Map.class);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("BAD_REQUEST", response.getBody().get("code"));
+        assertTrue(((String) response.getBody().get("message")).contains("Self-loop transitions"));
+    }
+
+    @Test
+    void rejectTask_shouldMoveInstanceToFailedState() {
+        String baseUrl = "http://localhost:" + port + "/api";
+
+        Map<String, Object> createRequest = Map.of(
+            "workflowName", "Reject Path Workflow",
+            "tasks", List.of(
+                Map.of("taskId", 1, "taskName", "Submit", "assignedRole", "EMPLOYEE"),
+                Map.of("taskId", 2, "taskName", "Approve", "assignedRole", "MANAGER")
+            ),
+            "transitions", List.of(
+                Map.of("fromTaskId", 1, "toTaskId", 2)
+            )
+        );
+
+        Integer workflowId = (Integer) post(baseUrl + "/workflows", createRequest, Map.class).getBody().get("workflowId");
+        Integer instanceId = (Integer) post(baseUrl + "/workflows/" + workflowId + "/instances", null, Map.class).getBody().get("instanceId");
+
+        post(baseUrl + "/instances/" + instanceId + "/execute", null, Map.class);
+        ResponseEntity<Map> rejectResponse = post(baseUrl + "/instances/" + instanceId + "/reject", null, Map.class);
+
+        assertEquals(HttpStatus.OK, rejectResponse.getStatusCode());
+        assertEquals("FAILED", rejectResponse.getBody().get("state"));
     }
 
     private <T> ResponseEntity<T> post(String url, Object body, Class<T> responseType) {

@@ -21,6 +21,16 @@ src/main/java/workflow
 - Main.java: Demo entry point (console flow)
 - WorkflowApiApplication.java: Spring Boot REST entry point
 
+src/test/java/workflow
+
+- unit: fast isolated unit tests
+- integration: API integration tests
+- system: end-to-end persistence-backed system tests
+
+scripts
+
+- demo-run.ps1: automated demo runner script
+
 ## Requirements
 
 - Java 17+
@@ -46,6 +56,12 @@ On Windows PowerShell, use:
 ```powershell
 .\mvnw.cmd compile
 .\mvnw.cmd exec:java "-Dexec.mainClass=workflow.Main"
+```
+
+Run automated API demo script:
+
+```powershell
+.\scripts\demo-run.ps1
 ```
 
 ## Run REST API
@@ -101,7 +117,7 @@ Example payload for `POST /api/workflows`:
 
 ## Tests
 
-Run unit + integration tests:
+Run unit tests only:
 
 ```bash
 ./mvnw test
@@ -111,4 +127,16 @@ On Windows PowerShell:
 
 ```powershell
 .\mvnw.cmd test
+```
+
+Run full test pyramid (unit + integration + system):
+
+```bash
+./mvnw verify
+```
+
+On Windows PowerShell:
+
+```powershell
+.\mvnw.cmd verify
 ```
