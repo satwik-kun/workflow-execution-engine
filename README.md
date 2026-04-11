@@ -15,18 +15,26 @@ src/main/java/workflow
 ## Requirements
 
 - Java 17+
-- Maven 3.8+
+
+Maven is optional because this repository includes Maven Wrapper.
 
 ## Run
 
-Compile:
+Compile (recommended via Maven Wrapper):
 
 ```bash
-mvn compile
+./mvnw compile
 ```
 
 Run:
 
 ```bash
-mvn exec:java -Dexec.mainClass="workflow.Main"
+./mvnw exec:java -Dexec.mainClass="workflow.Main"
+```
+
+On Windows PowerShell, use:
+
+```powershell
+.\mvnw.cmd compile
+.\mvnw.cmd exec:java "-Dexec.mainClass=workflow.Main"
 ```

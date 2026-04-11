@@ -38,11 +38,35 @@ public class WorkflowController {
     }
 
     public void viewWorkflowStatus(WorkflowInstance instance) {
-        System.out.println("Workflow State: " + instance.getState());
-        System.out.println("Current Task: " + instance.getCurrentTask());
-        System.out.println("Execution History:");
-        for (String event : instance.getHistory()) {
-            System.out.println("- " + event);
+        System.out.println("Workflow: " + instance.getWorkflow().getWorkflowName() + " (ID: " + instance.getWorkflow().getWorkflowId() + ")");
+        System.out.println("Instance ID: " + instance.getInstanceId());
+        System.out.println("Current State: " + instance.getState());
+        System.out.println("Current Task: " + formatCurrentTask(instance));
+        System.out.println("Retry Count: " + instance.getRetryCount());
+        if (!instance.getLastFailureDetails().isBlank()) {
+            System.out.println("Last Failure: " + instance.getLastFailureDetails());
         }
+
+        System.out.println("Execution History:");
+        int eventNumber = 1;
+        for (String event : instance.getHistory()) {
+            System.out.println(eventNumber + ". " + event);
+            eventNumber++;
+        }
+    }
+
+    private String formatCurrentTask(WorkflowInstance instance) {
+        int currentTaskId = instance.getCurrentTask();
+        if (currentTaskId < 0) {
+            return "N/A";
+        }
+
+        for (var task : instance.getWorkflow().getTasks()) {
+            if (task.getTaskId() == currentTaskId) {
+                return task.getTaskId() + " - " + task.getTaskName();
+            }
+        }
+
+        return String.valueOf(currentTaskId);
     }
 }
