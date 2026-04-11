@@ -2,6 +2,10 @@ $ErrorActionPreference = "Stop"
 
 $baseUrl = "http://localhost:8080/api"
 $line = "=" * 72
+$username = "manager"
+$password = "manager123"
+$authToken = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("$username`:$password"))
+$headers = @{ Authorization = "Basic $authToken" }
 
 function Write-Section([string]$title) {
     Write-Host "`n$line" -ForegroundColor DarkCyan
@@ -47,6 +51,17 @@ function Assert-ServerReady {
     }
 }
 
+function Invoke-ApiPost([string]$uri, [object]$body = $null) {
+    if ($null -eq $body) {
+        return Invoke-RestMethod -Method Post -Uri $uri -Headers $headers
+    }
+    return Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -ContentType "application/json" -Body $body
+}
+
+function Invoke-ApiGet([string]$uri) {
+    return Invoke-RestMethod -Method Get -Uri $uri -Headers $headers
+}
+
 Assert-ServerReady
 
 $workflowBody = @{
@@ -64,22 +79,23 @@ $workflowBody = @{
 
 Write-Section "Workflow Execution Engine Demo"
 Write-Host ("API Base URL: {0}" -f $baseUrl)
+Write-Host ("Auth User: {0}" -f $username)
 
 Write-Step "Create workflow" "POST /workflows"
-$workflow = Invoke-RestMethod -Method Post -Uri "$baseUrl/workflows" -ContentType "application/json" -Body $workflowBody
+$workflow = Invoke-ApiPost "$baseUrl/workflows" $workflowBody
 Write-Host ("[OK] workflowId={0}, name={1}" -f $workflow.workflowId, $workflow.workflowName) -ForegroundColor Green
 
 Write-Step "Start instance" ("POST /workflows/{0}/instances" -f $workflow.workflowId)
-$state = Invoke-RestMethod -Method Post -Uri ("$baseUrl/workflows/{0}/instances" -f $workflow.workflowId)
+$state = Invoke-ApiPost ("$baseUrl/workflows/{0}/instances" -f $workflow.workflowId)
 Write-State $state
 
 Write-Step "Execute first task" ("POST /instances/{0}/execute" -f $state.instanceId)
-$state = Invoke-RestMethod -Method Post -Uri ("$baseUrl/instances/{0}/execute" -f $state.instanceId)
+$state = Invoke-ApiPost ("$baseUrl/instances/{0}/execute" -f $state.instanceId)
 Write-State $state
 
 if ($state.state -eq "RUNNING" -and $state.currentTaskId -eq 2) {
     Write-Step "Approve manager task" ("POST /instances/{0}/approve" -f $state.instanceId)
-    $state = Invoke-RestMethod -Method Post -Uri ("$baseUrl/instances/{0}/approve" -f $state.instanceId)
+    $state = Invoke-ApiPost ("$baseUrl/instances/{0}/approve" -f $state.instanceId)
     Write-State $state
 } else {
     Write-Host "[INFO] Approval step skipped (instance not waiting at task 2)." -ForegroundColor DarkYellow
@@ -93,16 +109,16 @@ while ($state.state -eq "RUNNING") {
 
     if ($hasFailedTask) {
         Write-Step ("Retry failed task (attempt cycle {0})" -f $loop) ("POST /instances/{0}/retry" -f $state.instanceId)
-        $state = Invoke-RestMethod -Method Post -Uri ("$baseUrl/instances/{0}/retry" -f $state.instanceId)
+        $state = Invoke-ApiPost ("$baseUrl/instances/{0}/retry" -f $state.instanceId)
     } else {
         Write-Step ("Execute current task (cycle {0})" -f $loop) ("POST /instances/{0}/execute" -f $state.instanceId)
-        $state = Invoke-RestMethod -Method Post -Uri ("$baseUrl/instances/{0}/execute" -f $state.instanceId)
+        $state = Invoke-ApiPost ("$baseUrl/instances/{0}/execute" -f $state.instanceId)
     }
 
     Write-State $state
 }
 
-$final = Invoke-RestMethod -Method Get -Uri ("$baseUrl/instances/{0}" -f $state.instanceId)
+$final = Invoke-ApiGet ("$baseUrl/instances/{0}" -f $state.instanceId)
 
 Write-Section "Final Result"
 $result = [PSCustomObject]@{

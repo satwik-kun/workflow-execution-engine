@@ -33,6 +33,14 @@ class WorkflowApiIT {
     @Autowired
     private TestRestTemplate restTemplate;
 
+    private TestRestTemplate asManager() {
+        return restTemplate.withBasicAuth("manager", "manager123");
+    }
+
+    private TestRestTemplate asEmployee() {
+        return restTemplate.withBasicAuth("employee", "employee123");
+    }
+
     @Test
     void fullLifecycleFlow_shouldReachCompleted() {
         String baseUrl = "http://localhost:" + port + "/api";
@@ -88,7 +96,7 @@ class WorkflowApiIT {
             safetyCounter++;
         }
 
-        ResponseEntity<Map> finalResponse = restTemplate.getForEntity(
+        ResponseEntity<Map> finalResponse = asManager().getForEntity(
             baseUrl + "/instances/" + instanceId,
             Map.class
         );
@@ -113,6 +121,35 @@ class WorkflowApiIT {
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertEquals("VALIDATION_ERROR", response.getBody().get("code"));
         assertNotNull(response.getBody().get("message"));
+    }
+
+    @Test
+    void approveEndpoint_withNonManagerUser_shouldReturnForbidden() {
+        String baseUrl = "http://localhost:" + port + "/api";
+
+        Map<String, Object> createRequest = Map.of(
+            "workflowName", "Auth Workflow",
+            "tasks", List.of(
+                Map.of("taskId", 1, "taskName", "Submit", "assignedRole", "EMPLOYEE"),
+                Map.of("taskId", 2, "taskName", "Approve", "assignedRole", "MANAGER")
+            ),
+            "transitions", List.of(
+                Map.of("fromTaskId", 1, "toTaskId", 2)
+            )
+        );
+
+        Integer workflowId = (Integer) post(baseUrl + "/workflows", createRequest, Map.class).getBody().get("workflowId");
+        Integer instanceId = (Integer) post(baseUrl + "/workflows/" + workflowId + "/instances", null, Map.class).getBody().get("instanceId");
+        post(baseUrl + "/instances/" + instanceId + "/execute", null, Map.class);
+
+        ResponseEntity<Map> forbidden = postAs(
+            asEmployee(),
+            baseUrl + "/instances/" + instanceId + "/approve",
+            null,
+            Map.class
+        );
+
+        assertEquals(HttpStatus.FORBIDDEN, forbidden.getStatusCode());
     }
 
     @Test
@@ -177,6 +214,7 @@ class WorkflowApiIT {
         Integer instanceId = (Integer) post(baseUrl + "/workflows/" + workflowId + "/instances", null, Map.class).getBody().get("instanceId");
 
         post(baseUrl + "/instances/" + instanceId + "/execute", null, Map.class);
+        post(baseUrl + "/instances/" + instanceId + "/retry", null, Map.class);
         ResponseEntity<Map> rejectResponse = post(baseUrl + "/instances/" + instanceId + "/reject", null, Map.class);
 
         assertEquals(HttpStatus.OK, rejectResponse.getStatusCode());
@@ -184,9 +222,18 @@ class WorkflowApiIT {
     }
 
     private <T> ResponseEntity<T> post(String url, Object body, Class<T> responseType) {
+        return postAs(asManager(), url, body, responseType);
+    }
+
+    private <T> ResponseEntity<T> postAs(
+        TestRestTemplate client,
+        String url,
+        Object body,
+        Class<T> responseType
+    ) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<Object> entity = new HttpEntity<>(body, headers);
-        return restTemplate.exchange(url, HttpMethod.POST, entity, responseType);
+        return client.exchange(url, HttpMethod.POST, entity, responseType);
     }
 }

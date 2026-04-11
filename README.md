@@ -8,6 +8,9 @@ Workflow execution engine with:
 - request validation with structured API errors
 - deterministic demo mode for stable presentations
 - API integration tests for end-to-end flow
+- OpenAPI docs and health endpoint
+- Flyway-managed schema migrations
+- HTTP Basic auth with role-based endpoint protection
 
 ## Project Structure
 
@@ -82,13 +85,30 @@ Base URL: `http://localhost:8080/api`
 
 H2 console: `http://localhost:8080/h2-console`
 
+Swagger UI: `http://localhost:8080/swagger-ui/index.html`
+
+Health endpoint: `http://localhost:8080/actuator/health`
+
 JDBC URL: `jdbc:h2:file:./data/workflow-db`
 
 Demo behavior is deterministic by default via `workflow.execution.demo-mode=true` in [src/main/resources/application.properties](src/main/resources/application.properties).
 
 Set it to `false` to switch back to random execution behavior.
 
+Default API credentials:
+
+- manager / manager123
+- employee / employee123
+- operations / operations123
+
 ## API Endpoints
+
+All `/api/**` endpoints require authentication.
+
+Manager-only endpoints:
+
+- `POST /api/instances/{instanceId}/approve`
+- `POST /api/instances/{instanceId}/reject`
 
 - `POST /api/workflows` create workflow definition
 - `POST /api/workflows/{workflowId}/instances` start workflow instance

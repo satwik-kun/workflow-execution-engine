@@ -36,6 +36,10 @@ class WorkflowSystemST {
     @Autowired
     private TestRestTemplate restTemplate;
 
+    private TestRestTemplate asManager() {
+        return restTemplate.withBasicAuth("manager", "manager123");
+    }
+
     @Autowired
     private WorkflowInstanceRepository workflowInstanceRepository;
 
@@ -88,7 +92,7 @@ class WorkflowSystemST {
             loops++;
         }
 
-        ResponseEntity<Map> finalResponse = restTemplate.getForEntity(
+        ResponseEntity<Map> finalResponse = asManager().getForEntity(
             baseUrl + "/instances/" + instanceId,
             Map.class
         );
@@ -124,6 +128,7 @@ class WorkflowSystemST {
         Integer instanceId = (Integer) post(baseUrl + "/workflows/" + workflowId + "/instances", null, Map.class).getBody().get("instanceId");
 
         post(baseUrl + "/instances/" + instanceId + "/execute", null, Map.class);
+        post(baseUrl + "/instances/" + instanceId + "/retry", null, Map.class);
         ResponseEntity<Map> rejected = post(baseUrl + "/instances/" + instanceId + "/reject", null, Map.class);
 
         assertEquals(HttpStatus.OK, rejected.getStatusCode());
@@ -141,6 +146,6 @@ class WorkflowSystemST {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<Object> entity = new HttpEntity<>(body, headers);
-        return restTemplate.exchange(url, HttpMethod.POST, entity, responseType);
+        return asManager().exchange(url, HttpMethod.POST, entity, responseType);
     }
 }
