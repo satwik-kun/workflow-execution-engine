@@ -1,4 +1,14 @@
 import { useMemo, useState } from "react";
+import {
+  approveCurrentTask,
+  createWorkflow as createWorkflowRequest,
+  executeCurrentTask,
+  getWorkflowInstance,
+  rejectCurrentTask,
+  retryCurrentTask,
+  startWorkflowInstance,
+  toBasicAuth
+} from "./services/workflowApi";
 
 const initialDefinition = {
   workflowName: "Purchase Request Workflow",
@@ -12,31 +22,6 @@ const initialDefinition = {
     { fromTaskId: 2, toTaskId: 3 }
   ]
 };
-
-function toBasicAuth(username, password) {
-  return `Basic ${btoa(`${username}:${password}`)}`;
-}
-
-async function api(path, { method = "GET", body, auth }) {
-  const res = await fetch(path, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: auth
-    },
-    body: body ? JSON.stringify(body) : undefined
-  });
-
-  const contentType = res.headers.get("content-type") || "";
-  const payload = contentType.includes("application/json") ? await res.json() : await res.text();
-
-  if (!res.ok) {
-    const message = typeof payload === "object" ? payload.message || payload.error : payload;
-    throw new Error(message || `Request failed (${res.status})`);
-  }
-
-  return payload;
-}
 
 export default function App() {
   const [username, setUsername] = useState("manager");
@@ -66,45 +51,25 @@ export default function App() {
   };
 
   const createWorkflow = async () => {
-    const data = await run("Workflow definition created", () =>
-      api("/api/workflows", {
-        method: "POST",
-        body: definition,
-        auth
-      })
-    );
+    const data = await run("Workflow definition created", () => createWorkflowRequest(definition, auth));
     setWorkflowId(data.workflowId);
   };
 
   const startInstance = async () => {
     if (!workflowId) return;
-    const data = await run("Workflow instance started", () =>
-      api(`/api/workflows/${workflowId}/instances`, {
-        method: "POST",
-        auth
-      })
-    );
+    const data = await run("Workflow instance started", () => startWorkflowInstance(workflowId, auth));
     setInstance(data);
   };
 
   const refresh = async () => {
     if (!instance?.instanceId) return;
-    const data = await run("Instance refreshed", () =>
-      api(`/api/instances/${instance.instanceId}`, {
-        auth
-      })
-    );
+    const data = await run("Instance refreshed", () => getWorkflowInstance(instance.instanceId, auth));
     setInstance(data);
   };
 
-  const callInstanceAction = async (path, successLabel) => {
+  const callInstanceAction = async (requestFn, successLabel) => {
     if (!instance?.instanceId) return;
-    const data = await run(successLabel, () =>
-      api(`/api/instances/${instance.instanceId}/${path}`, {
-        method: "POST",
-        auth
-      })
-    );
+    const data = await run(successLabel, () => requestFn(instance.instanceId, auth));
     setInstance(data);
   };
 
@@ -172,10 +137,10 @@ export default function App() {
         <section className="card">
           <h2>Instance Actions</h2>
           <div className="actions">
-            <button onClick={() => callInstanceAction("execute", "Current task executed")} disabled={busy || !instance}>Execute</button>
-            <button onClick={() => callInstanceAction("approve", "Task approved")} disabled={busy || !instance}>Approve</button>
-            <button onClick={() => callInstanceAction("retry", "Retry applied")} disabled={busy || !instance}>Retry</button>
-            <button className="danger" onClick={() => callInstanceAction("reject", "Task rejected")} disabled={busy || !instance}>Reject</button>
+            <button onClick={() => callInstanceAction(executeCurrentTask, "Current task executed")} disabled={busy || !instance}>Execute</button>
+            <button onClick={() => callInstanceAction(approveCurrentTask, "Task approved")} disabled={busy || !instance}>Approve</button>
+            <button onClick={() => callInstanceAction(retryCurrentTask, "Retry applied")} disabled={busy || !instance}>Retry</button>
+            <button className="danger" onClick={() => callInstanceAction(rejectCurrentTask, "Task rejected")} disabled={busy || !instance}>Reject</button>
           </div>
           <p className="meta">Instance ID: {instance?.instanceId ?? "No instance yet"}</p>
           <p className="meta">Current State: <strong>{instance?.state ?? "-"}</strong></p>

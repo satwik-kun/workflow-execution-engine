@@ -15,22 +15,25 @@ import org.springframework.web.bind.annotation.RestController;
 import workflow.models.Task;
 import workflow.models.Workflow;
 import workflow.models.WorkflowInstance;
+import workflow.services.TaskFactory;
 import workflow.services.WorkflowRuntimeService;
 
 @RestController
 @RequestMapping("/api")
 public class WorkflowApiController {
     private final WorkflowRuntimeService workflowRuntimeService;
+    private final TaskFactory taskFactory;
 
-    public WorkflowApiController(WorkflowRuntimeService workflowRuntimeService) {
+    public WorkflowApiController(WorkflowRuntimeService workflowRuntimeService, TaskFactory taskFactory) {
         this.workflowRuntimeService = workflowRuntimeService;
+        this.taskFactory = taskFactory;
     }
 
     @PostMapping("/workflows")
     public WorkflowCreatedResponse createWorkflow(@Valid @RequestBody CreateWorkflowRequest request) {
         List<Task> tasks = new ArrayList<>();
         for (TaskRequest taskRequest : request.tasks()) {
-            tasks.add(new Task(taskRequest.taskId(), taskRequest.taskName(), taskRequest.assignedRole(), "PENDING"));
+            tasks.add(taskFactory.createPendingTask(taskRequest.taskId(), taskRequest.taskName(), taskRequest.assignedRole()));
         }
 
         List<WorkflowRuntimeService.TransitionEdge> edges = new ArrayList<>();

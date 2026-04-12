@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import workflow.models.Task;
 import workflow.models.Workflow;
 import workflow.models.WorkflowInstance;
+import workflow.models.WorkflowStatus;
 import workflow.services.ExecutionService;
 
 class ExecutionServiceTest {
@@ -26,7 +27,7 @@ class ExecutionServiceTest {
         assertTrue(result);
         assertEquals(2, instance.getCurrentTask());
         assertEquals("SUCCESS", workflow.getTaskById(1).getStatus());
-        assertEquals(WorkflowInstance.STATE_RUNNING, instance.getState());
+        assertEquals(WorkflowStatus.RUNNING.name(), instance.getState());
     }
 
     @Test
@@ -42,7 +43,7 @@ class ExecutionServiceTest {
 
         assertFalse(result);
         assertEquals("FAILURE", workflow.getTaskById(1).getStatus());
-        assertEquals(WorkflowInstance.STATE_RUNNING, instance.getState());
+        assertEquals(WorkflowStatus.RUNNING.name(), instance.getState());
         assertTrue(instance.getLastFailureDetails().contains("failed during execution"));
     }
 

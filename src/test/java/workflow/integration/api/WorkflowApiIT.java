@@ -42,6 +42,7 @@ class WorkflowApiIT {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     void fullLifecycleFlow_shouldReachCompleted() {
         String baseUrl = "http://localhost:" + port + "/api";
 

@@ -9,8 +9,10 @@ import workflow.controllers.WorkflowController;
 import workflow.models.Task;
 import workflow.models.Workflow;
 import workflow.models.WorkflowInstance;
+import workflow.models.WorkflowStatus;
 import workflow.services.ExecutionService;
 import workflow.services.RetryService;
+import workflow.services.TaskFactory;
 import workflow.services.ValidationService;
 
 public class Main {
@@ -24,27 +26,24 @@ public class Main {
         ExecutionController executionController = new ExecutionController(executionService);
         ApprovalController approvalController = new ApprovalController(executionService);
         RetryService retryService = new RetryService(executionService);
+        TaskFactory taskFactory = new TaskFactory();
 
         printSection("Workflow Execution Demo");
         System.out.println("[1/8] Creating workflow definition...");
         Workflow workflow = workflowController.createWorkflow(1001, "Purchase Request Workflow");
 
         System.out.println("[2/8] Adding tasks...");
-        workflow.addTask(new Task(1, "Submit Request", "EMPLOYEE", "PENDING"));
-        workflow.addTask(new Task(APPROVAL_TASK_ID, "Manager Approval", "MANAGER", "PENDING"));
-        workflow.addTask(new Task(3, "Fulfill Request", "OPERATIONS", "PENDING"));
+        workflow.addTask(taskFactory.createPendingTask(1, "Submit Request", "EMPLOYEE"));
+        workflow.addTask(taskFactory.createPendingTask(APPROVAL_TASK_ID, "Manager Approval", "MANAGER"));
+        workflow.addTask(taskFactory.createPendingTask(3, "Fulfill Request", "OPERATIONS"));
 
         System.out.println("[3/8] Defining transitions...");
         workflow.addTransition(1, APPROVAL_TASK_ID);
         workflow.addTransition(APPROVAL_TASK_ID, 3);
 
         System.out.println("[4/8] Validating workflow...");
-        boolean isValid = validationService.validateWorkflow(workflow);
-        System.out.println("Validation result: " + (isValid ? "PASS" : "FAIL"));
-        if (!isValid) {
-            System.out.println("Execution stopped because workflow validation failed.");
-            return;
-        }
+        validationService.validateWorkflow(workflow);
+        System.out.println("Validation result: PASS");
 
         System.out.println("[5/8] Starting workflow instance...");
         WorkflowInstance instance = workflowController.startWorkflow(workflow);
@@ -58,7 +57,7 @@ public class Main {
         }
 
         System.out.println("[7/8] Processing approval step...");
-        if (WorkflowInstance.STATE_RUNNING.equals(instance.getState())
+        if (instance.getWorkflowStatus() == WorkflowStatus.RUNNING
             && instance.getCurrentTask() == APPROVAL_TASK_ID) {
             approvalController.approveTask(instance);
             System.out.println("Approval completed for task " + APPROVAL_TASK_ID + ".");
@@ -66,7 +65,7 @@ public class Main {
             System.out.println("Approval skipped (workflow is not awaiting manager approval).");
         }
 
-        if (WorkflowInstance.STATE_RUNNING.equals(instance.getState())) {
+        if (instance.getWorkflowStatus() == WorkflowStatus.RUNNING) {
             System.out.println("[8/8] Executing remaining task(s)...");
             boolean finalTaskSucceeded = executionService.executeTask(instance);
             if (!finalTaskSucceeded) {

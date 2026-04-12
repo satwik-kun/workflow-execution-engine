@@ -8,6 +8,7 @@ import workflow.controllers.ApprovalController;
 import workflow.models.Task;
 import workflow.models.Workflow;
 import workflow.models.WorkflowInstance;
+import workflow.models.WorkflowStatus;
 import workflow.services.ExecutionService;
 
 class ApprovalControllerTest {
@@ -29,7 +30,7 @@ class ApprovalControllerTest {
 
         assertEquals("APPROVED", workflow.getTaskById(2).getStatus());
         assertEquals(3, instance.getCurrentTask());
-        assertEquals(WorkflowInstance.STATE_RUNNING, instance.getState());
+        assertEquals(WorkflowStatus.RUNNING.name(), instance.getState());
         assertTrue(instance.getHistory().stream().anyMatch(h -> h.contains("approved")));
     }
 
@@ -48,7 +49,7 @@ class ApprovalControllerTest {
         controller.rejectTask(instance);
 
         assertEquals("REJECTED", workflow.getTaskById(2).getStatus());
-        assertEquals(WorkflowInstance.STATE_FAILED, instance.getState());
+        assertEquals(WorkflowStatus.FAILED.name(), instance.getState());
         assertTrue(instance.getHistory().stream().anyMatch(h -> h.contains("rejected")));
     }
 }

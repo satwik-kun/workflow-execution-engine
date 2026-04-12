@@ -4,20 +4,20 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.stereotype.Service;
 import workflow.models.Task;
 import workflow.models.Workflow;
 
+@Service
 public class ValidationService {
     public boolean validateWorkflow(Workflow workflow) {
         if (workflow == null) {
-            System.out.println("Validation error: workflow cannot be null.");
-            return false;
+            throw new ValidationException("workflow cannot be null");
         }
 
         List<Task> tasks = workflow.getTasks();
         if (tasks.isEmpty()) {
-            System.out.println("Validation error: workflow must contain at least one task.");
-            return false;
+            throw new ValidationException("workflow must contain at least one task");
         }
 
         Set<Integer> validTaskIds = new HashSet<>();
@@ -29,10 +29,7 @@ public class ValidationService {
             }
 
             if (task.getAssignedRole() == null || task.getAssignedRole().isBlank()) {
-                System.out.println(
-                    "Validation error: task " + task.getTaskId() + " has no assigned role."
-                );
-                return false;
+                throw new ValidationException("task " + task.getTaskId() + " has no assigned role");
             }
         }
 
@@ -40,18 +37,12 @@ public class ValidationService {
         for (Map.Entry<Integer, List<Integer>> entry : transitions.entrySet()) {
             Integer fromTaskId = entry.getKey();
             if (!validTaskIds.contains(fromTaskId)) {
-                System.out.println(
-                    "Validation error: transition source taskId " + fromTaskId + " is invalid."
-                );
-                return false;
+                throw new ValidationException("transition source taskId " + fromTaskId + " is invalid");
             }
 
             for (Integer toTaskId : entry.getValue()) {
                 if (!validTaskIds.contains(toTaskId)) {
-                    System.out.println(
-                        "Validation error: transition target taskId " + toTaskId + " is invalid."
-                    );
-                    return false;
+                    throw new ValidationException("transition target taskId " + toTaskId + " is invalid");
                 }
             }
         }
@@ -61,10 +52,7 @@ public class ValidationService {
             boolean hasOutgoing = transitions.containsKey(taskId)
                 && !transitions.get(taskId).isEmpty();
             if (!hasOutgoing && taskId != lastTaskId) {
-                System.out.println(
-                    "Validation error: dead task detected for taskId " + taskId + "."
-                );
-                return false;
+                throw new ValidationException("dead task detected for taskId " + taskId);
             }
         }
 

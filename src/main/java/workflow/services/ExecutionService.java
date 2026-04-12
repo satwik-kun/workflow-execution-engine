@@ -3,22 +3,21 @@ package workflow.services;
 import java.util.List;
 import java.util.Random;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 import workflow.models.Task;
+import workflow.models.TaskStatus;
 import workflow.models.WorkflowInstance;
+import workflow.models.WorkflowStatus;
 
+@Service
 public class ExecutionService {
-    private static final String TASK_STATUS_PENDING = "PENDING";
-    private static final String TASK_STATUS_SUCCESS = "SUCCESS";
-    private static final String TASK_STATUS_FAILURE = "FAILURE";
-
     private final Random random;
     private final boolean deterministicDemoMode;
 
-    public ExecutionService() {
-        this(new Random(), false);
-    }
-
-    public ExecutionService(boolean deterministicDemoMode) {
+    @Autowired
+    public ExecutionService(@Value("${workflow.execution.demo-mode:false}") boolean deterministicDemoMode) {
         this(new Random(), deterministicDemoMode);
     }
 
@@ -43,12 +42,12 @@ public class ExecutionService {
             return false;
         }
 
-        if (WorkflowInstance.STATE_COMPLETED.equals(instance.getState())) {
+        if (instance.getWorkflowStatus() == WorkflowStatus.COMPLETED) {
             instance.addHistory("Execution skipped because workflow is already COMPLETED");
             return false;
         }
 
-        if (WorkflowInstance.STATE_FAILED.equals(instance.getState())) {
+        if (instance.getWorkflowStatus() == WorkflowStatus.FAILED) {
             instance.addHistory("Execution skipped because workflow is already FAILED");
             return false;
         }
@@ -62,7 +61,7 @@ public class ExecutionService {
         boolean isSuccess = deterministicDemoMode
             ? evaluateDeterministicOutcome(instance, currentTask)
             : random.nextBoolean();
-        String executionStatus = isSuccess ? TASK_STATUS_SUCCESS : TASK_STATUS_FAILURE;
+        TaskStatus executionStatus = isSuccess ? TaskStatus.SUCCESS : TaskStatus.FAILURE;
         updateTaskState(currentTask, executionStatus);
 
         instance.addHistory(
@@ -76,7 +75,7 @@ public class ExecutionService {
             return true;
         }
 
-        instance.setStatus(WorkflowInstance.STATE_RUNNING);
+        instance.setStatus(WorkflowStatus.RUNNING);
         instance.setLastFailureDetails(
             "Task " + currentTask.getTaskId() + " (" + currentTask.getTaskName() + ") failed during execution"
         );
@@ -85,8 +84,8 @@ public class ExecutionService {
         return false;
     }
 
-    public void updateTaskState(Task task, String status) {
-        if (task != null && status != null && !status.isBlank()) {
+    public void updateTaskState(Task task, TaskStatus status) {
+        if (task != null && status != null) {
             task.setStatus(status);
         }
     }
@@ -100,7 +99,7 @@ public class ExecutionService {
         List<Integer> nextTaskIds = instance.getWorkflow().getNextTasks(currentTaskId);
 
         if (nextTaskIds.isEmpty()) {
-            instance.setStatus(WorkflowInstance.STATE_COMPLETED);
+            instance.setStatus(WorkflowStatus.COMPLETED);
             instance.addHistory("No next task from " + currentTaskId + ". Workflow marked COMPLETED");
             return;
         }
@@ -121,16 +120,16 @@ public class ExecutionService {
             Task firstTask = tasks.get(0);
             instance.setCurrentTask(firstTask.getTaskId());
             instance.addHistory("Initialized current task to " + firstTask.getTaskId());
-            if (TASK_STATUS_PENDING.equalsIgnoreCase(firstTask.getStatus())) {
-                updateTaskState(firstTask, TASK_STATUS_PENDING);
+            if (firstTask.getTaskStatus() == TaskStatus.PENDING) {
+                updateTaskState(firstTask, TaskStatus.PENDING);
             }
             return firstTask;
         }
 
         for (Task task : tasks) {
             if (task.getTaskId() == currentTaskId) {
-                if (TASK_STATUS_PENDING.equalsIgnoreCase(task.getStatus())) {
-                    updateTaskState(task, TASK_STATUS_PENDING);
+                if (task.getTaskStatus() == TaskStatus.PENDING) {
+                    updateTaskState(task, TaskStatus.PENDING);
                 }
                 return task;
             }
@@ -141,7 +140,7 @@ public class ExecutionService {
 
     private boolean evaluateDeterministicOutcome(WorkflowInstance instance, Task currentTask) {
         if (currentTask.getTaskId() == 1
-            && TASK_STATUS_PENDING.equalsIgnoreCase(currentTask.getStatus())
+            && currentTask.getTaskStatus() == TaskStatus.PENDING
             && instance.getRetryCount() == 0) {
             return false;
         }

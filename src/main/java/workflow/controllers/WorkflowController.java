@@ -18,9 +18,7 @@ public class WorkflowController {
     }
 
     public WorkflowInstance startWorkflow(Workflow workflow) {
-        if (!validationService.validateWorkflow(workflow)) {
-            throw new IllegalArgumentException("Workflow validation failed. Cannot start workflow.");
-        }
+        validationService.validateWorkflow(workflow);
 
         WorkflowInstance instance = new WorkflowInstance(INSTANCE_SEQUENCE.getAndIncrement(), workflow);
         instance.start();

@@ -47,6 +47,7 @@ class WorkflowSystemST {
     private WorkflowHistoryRepository workflowHistoryRepository;
 
     @Test
+    @SuppressWarnings("unchecked")
     void systemFlow_shouldPersistInstanceAndHistory() {
         String baseUrl = "http://localhost:" + port + "/api";
 

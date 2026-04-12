@@ -5,31 +5,56 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import workflow.controllers.ApprovalController;
 import workflow.models.Task;
+import workflow.models.TaskStatus;
 import workflow.models.Workflow;
 import workflow.models.WorkflowInstance;
+import workflow.models.WorkflowStatus;
 
 @Service
 public class WorkflowRuntimeService {
     private final ValidationService validationService;
     private final ExecutionService executionService;
     private final RetryService retryService;
-    private final ApprovalController approvalController;
+    private final ApprovalService approvalService;
     private final InstancePersistenceService persistenceService;
     private final WorkflowDefinitionPersistenceService definitionPersistenceService;
 
+    @Autowired
+    public WorkflowRuntimeService(
+        ValidationService validationService,
+        ExecutionService executionService,
+        RetryService retryService,
+        ApprovalService approvalService,
+        InstancePersistenceService persistenceService,
+        WorkflowDefinitionPersistenceService definitionPersistenceService
+    ) {
+        this.validationService = validationService;
+        this.executionService = executionService;
+        this.retryService = retryService;
+        this.approvalService = approvalService;
+        this.persistenceService = persistenceService;
+        this.definitionPersistenceService = definitionPersistenceService;
+    }
+
+    // Compatibility constructor for unit tests that instantiate this service directly.
     public WorkflowRuntimeService(
         InstancePersistenceService persistenceService,
         WorkflowDefinitionPersistenceService definitionPersistenceService,
-        @Value("${workflow.execution.demo-mode:false}") boolean deterministicDemoMode
+        boolean deterministicDemoMode
     ) {
         this.validationService = new ValidationService();
         this.executionService = new ExecutionService(deterministicDemoMode);
         this.retryService = new RetryService(executionService);
-        this.approvalController = new ApprovalController(executionService);
+        this.approvalService = new ApprovalService(
+            executionService,
+            List.of(
+                new ApproveTaskDecisionStrategy(),
+                new RejectTaskDecisionStrategy()
+            )
+        );
         this.persistenceService = persistenceService;
         this.definitionPersistenceService = definitionPersistenceService;
     }
@@ -46,9 +71,7 @@ public class WorkflowRuntimeService {
             workflow.addTransition(transition[0], transition[1]);
         }
 
-        if (!validationService.validateWorkflow(workflow)) {
-            throw new IllegalArgumentException("Workflow validation failed.");
-        }
+        validationService.validateWorkflow(workflow);
 
         definitionPersistenceService.save(workflow);
         return workflow;
@@ -75,7 +98,7 @@ public class WorkflowRuntimeService {
 
     public WorkflowInstance executeCurrentTask(int instanceId) {
         WorkflowInstance instance = persistenceService.findById(instanceId);
-        ensureInstanceInState(instance, WorkflowInstance.STATE_RUNNING, "execute task");
+        ensureInstanceInState(instance, WorkflowStatus.RUNNING, "execute task");
         executionService.executeTask(instance);
         persistenceService.save(instance);
         return instance;
@@ -83,10 +106,10 @@ public class WorkflowRuntimeService {
 
     public WorkflowInstance retryCurrentTask(int instanceId) {
         WorkflowInstance instance = persistenceService.findById(instanceId);
-        ensureInstanceInState(instance, WorkflowInstance.STATE_RUNNING, "retry task");
+        ensureInstanceInState(instance, WorkflowStatus.RUNNING, "retry task");
 
         Task currentTask = getCurrentTaskOrThrow(instance);
-        if (!"FAILURE".equalsIgnoreCase(currentTask.getStatus())) {
+        if (currentTask.getTaskStatus() != TaskStatus.FAILURE) {
             throw new IllegalArgumentException(
                 "Retry is allowed only when current task is in FAILURE state"
             );
@@ -99,32 +122,32 @@ public class WorkflowRuntimeService {
 
     public WorkflowInstance approveCurrentTask(int instanceId) {
         WorkflowInstance instance = persistenceService.findById(instanceId);
-        ensureInstanceInState(instance, WorkflowInstance.STATE_RUNNING, "approve task");
+        ensureInstanceInState(instance, WorkflowStatus.RUNNING, "approve task");
         Task currentTask = getCurrentTaskOrThrow(instance);
         if (!"MANAGER".equalsIgnoreCase(currentTask.getAssignedRole())) {
             throw new IllegalArgumentException("Only manager tasks can be approved");
         }
-        if (!"PENDING".equalsIgnoreCase(currentTask.getStatus())) {
+        if (currentTask.getTaskStatus() != TaskStatus.PENDING) {
             throw new IllegalArgumentException("Only PENDING tasks can be approved");
         }
 
-        approvalController.approveTask(instance);
+        approvalService.approveTask(instance);
         persistenceService.save(instance);
         return instance;
     }
 
     public WorkflowInstance rejectCurrentTask(int instanceId) {
         WorkflowInstance instance = persistenceService.findById(instanceId);
-        ensureInstanceInState(instance, WorkflowInstance.STATE_RUNNING, "reject task");
+        ensureInstanceInState(instance, WorkflowStatus.RUNNING, "reject task");
         Task currentTask = getCurrentTaskOrThrow(instance);
         if (!"MANAGER".equalsIgnoreCase(currentTask.getAssignedRole())) {
             throw new IllegalArgumentException("Only manager tasks can be rejected");
         }
-        if (!"PENDING".equalsIgnoreCase(currentTask.getStatus())) {
+        if (currentTask.getTaskStatus() != TaskStatus.PENDING) {
             throw new IllegalArgumentException("Only PENDING tasks can be rejected");
         }
 
-        approvalController.rejectTask(instance);
+        approvalService.rejectTask(instance);
         persistenceService.save(instance);
         return instance;
     }
@@ -136,7 +159,7 @@ public class WorkflowRuntimeService {
     private Workflow cloneWorkflow(Workflow source) {
         Workflow clone = new Workflow(source.getWorkflowId(), source.getWorkflowName());
         for (Task task : source.getTasks()) {
-            clone.addTask(new Task(task.getTaskId(), task.getTaskName(), task.getAssignedRole(), task.getStatus()));
+            clone.addTask(new Task(task.getTaskId(), task.getTaskName(), task.getAssignedRole(), task.getTaskStatus()));
         }
         for (Map.Entry<Integer, List<Integer>> transition : source.getTransitions().entrySet()) {
             for (Integer nextTask : transition.getValue()) {
@@ -157,8 +180,8 @@ public class WorkflowRuntimeService {
     public record TransitionEdge(int fromTaskId, int toTaskId) {
     }
 
-    private void ensureInstanceInState(WorkflowInstance instance, String expectedState, String operation) {
-        if (!expectedState.equals(instance.getState())) {
+    private void ensureInstanceInState(WorkflowInstance instance, WorkflowStatus expectedState, String operation) {
+        if (expectedState != instance.getWorkflowStatus()) {
             throw new IllegalArgumentException(
                 "Cannot " + operation + " when instance state is " + instance.getState()
             );

@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import workflow.models.Task;
 import workflow.models.Workflow;
 import workflow.models.WorkflowInstance;
+import workflow.models.WorkflowStatus;
 import workflow.services.ExecutionService;
 import workflow.services.RetryService;
 
@@ -25,7 +26,7 @@ class RetryServiceTest {
         retryService.handleFailure(instance);
 
         assertEquals(2, instance.getCurrentTask());
-        assertEquals(WorkflowInstance.STATE_RUNNING, instance.getState());
+        assertEquals(WorkflowStatus.RUNNING.name(), instance.getState());
         assertEquals(0, instance.getRetryCount());
         assertTrue(instance.getHistory().stream().anyMatch(event -> event.contains("recovered successfully")));
     }
@@ -42,7 +43,7 @@ class RetryServiceTest {
 
         retryService.handleFailure(instance);
 
-        assertEquals(WorkflowInstance.STATE_FAILED, instance.getState());
+        assertEquals(WorkflowStatus.FAILED.name(), instance.getState());
         assertTrue(instance.getHistory().stream().anyMatch(event -> event.contains("Retry limit reached")));
     }
 
