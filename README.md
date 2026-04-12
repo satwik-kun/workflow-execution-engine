@@ -33,6 +33,7 @@ src/test/java/workflow
 scripts
 
 - demo-run.ps1: automated demo runner script
+- check-requirements.ps1: validates local tooling requirements only
 - team-demo.ps1: team launcher (checks requirements, starts backend/UI, runs demo)
 
 ui
@@ -42,6 +43,12 @@ ui
 ## Team Quick Start
 
 Read [REQUIREMENTS.md](REQUIREMENTS.md) and run:
+
+```powershell
+.\scripts\check-requirements.ps1
+```
+
+Then run:
 
 ```powershell
 .\scripts\team-demo.ps1

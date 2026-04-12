@@ -23,8 +23,25 @@ function Require-Command([string]$name) {
     }
 }
 
+function Get-JavaCommand {
+    if ($env:JAVA_HOME) {
+        $javaFromHome = Join-Path $env:JAVA_HOME "bin\java.exe"
+        if (Test-Path $javaFromHome) {
+            return $javaFromHome
+        }
+    }
+
+    $javaCmd = Get-Command java -ErrorAction SilentlyContinue
+    if ($javaCmd) {
+        return $javaCmd.Source
+    }
+
+    throw "Java is not installed or not available on PATH/JAVA_HOME."
+}
+
 function Get-JavaMajorVersion {
-    $versionOutput = (& java -version 2>&1 | Select-Object -First 1)
+    $javaCommand = Get-JavaCommand
+    $versionOutput = (& $javaCommand -version 2>&1 | Select-Object -First 1)
     if ($versionOutput -match '"(?<v>\d+)(\.\d+)?') {
         return [int]$Matches['v']
     }
@@ -66,7 +83,6 @@ function Wait-ForBackend {
 }
 
 Write-Info "Checking local requirements"
-Require-Command java
 Require-Command node
 Require-Command npm
 

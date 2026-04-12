@@ -25,6 +25,12 @@ Expected:
 - Java version should be 25+
 - Node should be 20+
 
+Or run the automated requirements check:
+
+```powershell
+.\scripts\check-requirements.ps1
+```
+
 ## Clone And Start
 
 From a fresh clone:
