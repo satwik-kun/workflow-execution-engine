@@ -51,7 +51,7 @@ This will verify dependencies, start backend/UI if needed, and run a full API wa
 
 ## Requirements
 
-- Java 17+
+- Java 25+
 
 Maven is optional because this repository includes Maven Wrapper.
 

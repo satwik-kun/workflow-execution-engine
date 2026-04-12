@@ -4,7 +4,7 @@ Use this checklist before running the project on a new machine.
 
 ## Required Software
 
-- Java JDK 17 or newer
+- Java JDK 25 or newer
 - Node.js 20 or newer (includes npm)
 - Git
 - PowerShell 7+ recommended on Windows
@@ -22,7 +22,7 @@ git --version
 
 Expected:
 
-- Java version should be 17+
+- Java version should be 25+
 - Node should be 20+
 
 ## Clone And Start

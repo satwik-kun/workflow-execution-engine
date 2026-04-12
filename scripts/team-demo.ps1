@@ -71,8 +71,8 @@ Require-Command node
 Require-Command npm
 
 $javaMajor = Get-JavaMajorVersion
-if ($javaMajor -lt 17) {
-    throw "Java 17+ is required, found Java $javaMajor"
+if ($javaMajor -lt 25) {
+    throw "Java 25+ is required, found Java $javaMajor"
 }
 Write-Ok "Java version is compatible ($javaMajor+)"
 
