@@ -10,6 +10,30 @@ import {
   toBasicAuth
 } from "./services/workflowApi";
 
+const actorPresets = {
+  employee: {
+    label: "Employee",
+    username: "employee",
+    password: "employee123",
+    role: "EMPLOYEE",
+    description: "Creates and starts work"
+  },
+  manager: {
+    label: "Manager",
+    username: "manager",
+    password: "manager123",
+    role: "MANAGER",
+    description: "Approves or rejects tasks"
+  },
+  operations: {
+    label: "Operations",
+    username: "operations",
+    password: "operations123",
+    role: "OPERATIONS",
+    description: "Handles fulfillment steps"
+  }
+};
+
 const initialDefinition = {
   workflowName: "Purchase Request Workflow",
   tasks: [
@@ -24,8 +48,9 @@ const initialDefinition = {
 };
 
 export default function App() {
-  const [username, setUsername] = useState("manager");
-  const [password, setPassword] = useState("manager123");
+  const [activeActor, setActiveActor] = useState("manager");
+  const [username, setUsername] = useState(actorPresets.manager.username);
+  const [password, setPassword] = useState(actorPresets.manager.password);
   const [definition, setDefinition] = useState(initialDefinition);
   const [workflowId, setWorkflowId] = useState(null);
   const [instance, setInstance] = useState(null);
@@ -34,6 +59,22 @@ export default function App() {
   const [error, setError] = useState("");
 
   const auth = useMemo(() => toBasicAuth(username, password), [username, password]);
+
+  const selectActor = (actorKey) => {
+    const preset = actorPresets[actorKey];
+    if (!preset) return;
+
+    setActiveActor(actorKey);
+    setUsername(preset.username);
+    setPassword(preset.password);
+    setMessage(`${preset.label} profile loaded`);
+    setError("");
+  };
+
+  const currentActor = actorPresets[activeActor] ?? actorPresets.manager;
+
+  const canApprove = activeActor === "manager";
+  const canRunDefinitionFlow = activeActor === "employee" || activeActor === "manager";
 
   const run = async (label, fn) => {
     setBusy(true);
@@ -99,6 +140,22 @@ export default function App() {
 
         <section className="card auth-card">
           <h2>Access</h2>
+          <div className="actor-switcher" role="tablist" aria-label="Demo actors">
+            {Object.entries(actorPresets).map(([key, preset]) => (
+              <button
+                key={key}
+                type="button"
+                className={key === activeActor ? "actor-pill active" : "actor-pill"}
+                onClick={() => selectActor(key)}
+              >
+                <span>{preset.label}</span>
+                <small>{preset.role}</small>
+              </button>
+            ))}
+          </div>
+          <p className="actor-summary">
+            Active actor: <strong>{currentActor.label}</strong> · {currentActor.description}
+          </p>
           <div className="grid two">
             <label>
               Username
@@ -117,6 +174,10 @@ export default function App() {
 
         <section className="card">
           <h2>Workflow Definition</h2>
+          <p className="meta">
+            Best demo flow: start as Employee to create and start the workflow, then switch to Manager for approval,
+            and to Operations when the fulfillment task appears.
+          </p>
           <label>
             Workflow Name
             <input
@@ -127,8 +188,8 @@ export default function App() {
             />
           </label>
           <div className="actions">
-            <button onClick={createWorkflow} disabled={busy}>Create Workflow</button>
-            <button onClick={startInstance} disabled={busy || !workflowId}>Start Instance</button>
+            <button onClick={createWorkflow} disabled={busy || !canRunDefinitionFlow}>Create Workflow</button>
+            <button onClick={startInstance} disabled={busy || !workflowId || !canRunDefinitionFlow}>Start Instance</button>
             <button onClick={refresh} disabled={busy || !instance}>Refresh State</button>
           </div>
           <p className="meta">Workflow ID: {workflowId ?? "Not created"}</p>
@@ -138,12 +199,33 @@ export default function App() {
           <h2>Instance Actions</h2>
           <div className="actions">
             <button onClick={() => callInstanceAction(executeCurrentTask, "Current task executed")} disabled={busy || !instance}>Execute</button>
-            <button onClick={() => callInstanceAction(approveCurrentTask, "Task approved")} disabled={busy || !instance}>Approve</button>
+            <button onClick={() => callInstanceAction(approveCurrentTask, "Task approved")} disabled={busy || !instance || !canApprove}>Approve</button>
             <button onClick={() => callInstanceAction(retryCurrentTask, "Retry applied")} disabled={busy || !instance}>Retry</button>
-            <button className="danger" onClick={() => callInstanceAction(rejectCurrentTask, "Task rejected")} disabled={busy || !instance}>Reject</button>
+            <button className="danger" onClick={() => callInstanceAction(rejectCurrentTask, "Task rejected")} disabled={busy || !instance || !canApprove}>Reject</button>
           </div>
+          <p className="meta">
+            Approval actions are enabled only for the Manager profile. Operations is shown for fulfillment steps.
+          </p>
           <p className="meta">Instance ID: {instance?.instanceId ?? "No instance yet"}</p>
           <p className="meta">Current State: <strong>{instance?.state ?? "-"}</strong></p>
+        </section>
+
+        <section className="card">
+          <h2>Role Coverage</h2>
+          <div className="role-grid">
+            <article className={activeActor === "employee" ? "role-card active" : "role-card"}>
+              <h3>Employee</h3>
+              <p>Creates the workflow and starts the instance.</p>
+            </article>
+            <article className={activeActor === "manager" ? "role-card active" : "role-card"}>
+              <h3>Manager</h3>
+              <p>Approves or rejects the active task.</p>
+            </article>
+            <article className={activeActor === "operations" ? "role-card active" : "role-card"}>
+              <h3>Operations</h3>
+              <p>Handles the final fulfillment step in the workflow.</p>
+            </article>
+          </div>
         </section>
 
         <section className="card">

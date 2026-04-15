@@ -115,6 +115,47 @@ input:focus {
   gap: 0.7rem;
 }
 
+.actor-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-bottom: 0.75rem;
+}
+
+.actor-pill {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 124px;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ink);
+  text-align: left;
+}
+
+.actor-pill small {
+  font-family: "IBM Plex Mono", monospace;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.actor-pill.active {
+  background: #0f766e;
+  color: #fff;
+  border-color: #0f766e;
+}
+
+.actor-pill.active small {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.actor-summary {
+  margin: 0 0 0.8rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
@@ -162,6 +203,35 @@ button.danger { background: var(--accent-2); }
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 0.6rem;
 }
+
+.role-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.role-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.8rem;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.role-card.active {
+  border-color: rgba(15, 118, 110, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(15, 118, 110, 0.12);
+}
+
+.role-card h3 {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+}
+
+.role-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
 .task {
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -205,5 +275,6 @@ button.danger { background: var(--accent-2); }
 
 @media (max-width: 760px) {
   .grid.two { grid-template-columns: 1fr; }
+  .role-grid { grid-template-columns: 1fr; }
   .layout { padding-top: 1rem; }
 }
