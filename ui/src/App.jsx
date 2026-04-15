@@ -225,14 +225,29 @@ export default function App() {
   };
 
   const startInstance = async () => {
-    await startNextQueueOrder();
+    if (!workflowId) return;
+    const data = await run("Instance started", () => startWorkflowInstance(workflowId, auth));
+    setInstance(data);
   };
 
   const refresh = async () => {
     if (!instance?.instanceId) return;
     const data = await run("Instance refreshed", () => getWorkflowInstance(instance.instanceId, auth));
     setInstance(data);
-    markQueueProgress(data);
+    
+    // Only update queue if we're in queue mode (activeOrderIndex is set)
+    if (activeOrderIndex !== null) {
+      markQueueProgress(data);
+    }
+    
+    // If workflow completed in normal mode, reset for next workflow
+    if ((data.state === "COMPLETED" || data.state === "FAILED") && activeOrderIndex === null) {
+      setTimeout(() => {
+        setInstance(null);
+        setWorkflowId(null);
+        setMessage(`Workflow ${data.state.toLowerCase()}. Ready for new workflow.`);
+      }, 1000);
+    }
   };
 
   const unlockNextQueueOrder = () => {
@@ -254,7 +269,20 @@ export default function App() {
     if (!instance?.instanceId) return;
     const data = await run(successLabel, () => requestFn(instance.instanceId, auth));
     setInstance(data);
-    markQueueProgress(data);
+    
+    // Only update queue if in queue mode
+    if (activeOrderIndex !== null) {
+      markQueueProgress(data);
+    }
+    
+    // If workflow completed in normal mode, reset for next workflow
+    if ((data.state === "COMPLETED" || data.state === "FAILED") && activeOrderIndex === null) {
+      setTimeout(() => {
+        setInstance(null);
+        setWorkflowId(null);
+        setMessage(`Workflow ${data.state.toLowerCase()}. Ready for new workflow.`);
+      }, 1000);
+    }
   };
 
   const queueTone = (queueStatus) => {
@@ -398,7 +426,7 @@ export default function App() {
           </label>
           <div className="actions">
             <button onClick={createWorkflow} disabled={busy || !canRunDefinitionFlow}>Create Workflow</button>
-            <button onClick={startInstance} disabled={busy || !canRunDefinitionFlow || hasRunningQueueOrder || firstNotCompletedOrderIndex < 0}>Start Instance</button>
+            <button onClick={startInstance} disabled={busy || !workflowId || !!instance}>Start Instance</button>
             <button onClick={refresh} disabled={busy || !instance}>Refresh State</button>
           </div>
           <p className="meta">Workflow ID: {workflowId ?? "Not created"}</p>
