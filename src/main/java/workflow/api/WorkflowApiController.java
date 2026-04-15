@@ -5,7 +5,11 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import java.util.ArrayList;
+import java.util.Locale;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -30,7 +34,9 @@ public class WorkflowApiController {
     }
 
     @PostMapping("/workflows")
-    public WorkflowCreatedResponse createWorkflow(@Valid @RequestBody CreateWorkflowRequest request) {
+    public WorkflowCreatedResponse createWorkflow(@Valid @RequestBody CreateWorkflowRequest request, Authentication authentication) {
+        ensureHasAnyRole(authentication, "EMPLOYEE", "MANAGER");
+
         List<Task> tasks = new ArrayList<>();
         for (TaskRequest taskRequest : request.tasks()) {
             tasks.add(taskFactory.createPendingTask(taskRequest.taskId(), taskRequest.taskName(), taskRequest.assignedRole()));
@@ -54,27 +60,32 @@ public class WorkflowApiController {
     }
 
     @PostMapping("/workflows/{workflowId}/instances")
-    public WorkflowInstanceResponse startInstance(@PathVariable int workflowId) {
+    public WorkflowInstanceResponse startInstance(@PathVariable int workflowId, Authentication authentication) {
+        ensureHasAnyRole(authentication, "EMPLOYEE", "MANAGER");
         return toResponse(workflowRuntimeService.startInstance(workflowId));
     }
 
     @PostMapping("/instances/{instanceId}/execute")
-    public WorkflowInstanceResponse executeTask(@PathVariable int instanceId) {
+    public WorkflowInstanceResponse executeTask(@PathVariable int instanceId, Authentication authentication) {
+        ensureActorMatchesCurrentTask(authentication, instanceId, "execute");
         return toResponse(workflowRuntimeService.executeCurrentTask(instanceId));
     }
 
     @PostMapping("/instances/{instanceId}/retry")
-    public WorkflowInstanceResponse retryTask(@PathVariable int instanceId) {
+    public WorkflowInstanceResponse retryTask(@PathVariable int instanceId, Authentication authentication) {
+        ensureActorMatchesCurrentTask(authentication, instanceId, "retry");
         return toResponse(workflowRuntimeService.retryCurrentTask(instanceId));
     }
 
     @PostMapping("/instances/{instanceId}/approve")
-    public WorkflowInstanceResponse approveTask(@PathVariable int instanceId) {
+    public WorkflowInstanceResponse approveTask(@PathVariable int instanceId, Authentication authentication) {
+        ensureHasAnyRole(authentication, "MANAGER");
         return toResponse(workflowRuntimeService.approveCurrentTask(instanceId));
     }
 
     @PostMapping("/instances/{instanceId}/reject")
-    public WorkflowInstanceResponse rejectTask(@PathVariable int instanceId) {
+    public WorkflowInstanceResponse rejectTask(@PathVariable int instanceId, Authentication authentication) {
+        ensureHasAnyRole(authentication, "MANAGER");
         return toResponse(workflowRuntimeService.rejectCurrentTask(instanceId));
     }
 
@@ -86,7 +97,7 @@ public class WorkflowApiController {
     private WorkflowInstanceResponse toResponse(WorkflowInstance instance) {
         List<TaskStatusResponse> tasks = new ArrayList<>();
         for (Task task : instance.getWorkflow().getTasks()) {
-            tasks.add(new TaskStatusResponse(task.getTaskId(), task.getTaskName(), task.getStatus()));
+            tasks.add(new TaskStatusResponse(task.getTaskId(), task.getTaskName(), task.getAssignedRole(), task.getStatus()));
         }
 
         return new WorkflowInstanceResponse(
@@ -100,6 +111,56 @@ public class WorkflowApiController {
             tasks,
             instance.getHistory()
         );
+    }
+
+    private void ensureHasAnyRole(Authentication authentication, String... allowedRoles) {
+        Set<String> actorRoles = extractActorRoles(authentication);
+        for (String allowedRole : allowedRoles) {
+            if (actorRoles.contains(normalizeRole(allowedRole))) {
+                return;
+            }
+        }
+
+        throw new IllegalArgumentException(
+            "Access denied for this action. Required roles: " + String.join(", ", allowedRoles)
+        );
+    }
+
+    private void ensureActorMatchesCurrentTask(Authentication authentication, int instanceId, String operation) {
+        WorkflowInstance instance = workflowRuntimeService.getInstance(instanceId);
+        Task currentTask = instance.getWorkflow().getTaskById(instance.getCurrentTask());
+        if (currentTask == null) {
+            throw new IllegalArgumentException("No active task found to " + operation + " for instance " + instanceId);
+        }
+
+        String requiredRole = normalizeRole(currentTask.getAssignedRole());
+        Set<String> actorRoles = extractActorRoles(authentication);
+        if (actorRoles.contains(requiredRole)) {
+            return;
+        }
+
+        throw new IllegalArgumentException(
+            "Role mismatch for task execution. Task "
+                + currentTask.getTaskId()
+                + " requires "
+                + requiredRole
+                + " role."
+        );
+    }
+
+    private Set<String> extractActorRoles(Authentication authentication) {
+        if (authentication == null) {
+            throw new IllegalArgumentException("Authentication is required");
+        }
+
+        return authentication.getAuthorities()
+            .stream()
+            .map(authority -> normalizeRole(authority.getAuthority().replace("ROLE_", "")))
+            .collect(Collectors.toSet());
+    }
+
+    private String normalizeRole(String role) {
+        return role == null ? "" : role.trim().toUpperCase(Locale.ROOT);
     }
 
     public record CreateWorkflowRequest(
@@ -138,6 +199,6 @@ public class WorkflowApiController {
     ) {
     }
 
-    public record TaskStatusResponse(int taskId, String taskName, String status) {
+    public record TaskStatusResponse(int taskId, String taskName, String assignedRole, String status) {
     }
 }

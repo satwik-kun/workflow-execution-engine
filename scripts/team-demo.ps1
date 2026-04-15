@@ -135,8 +135,8 @@ if (-not (Test-Endpoint $uiUrl)) {
     Write-Ok "UI already running"
 }
 
-Write-Info "Running API demo scenario"
-& (Join-Path $PSScriptRoot "demo-run.ps1")
+Write-Info "Running API demo scenario (clothing brand workflow)"
+& (Join-Path $PSScriptRoot "demo-run-clothing-brand.ps1")
 
 Write-Host ""
 Write-Host "================ TEAM DEMO READY ================" -ForegroundColor DarkCyan

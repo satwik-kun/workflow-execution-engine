@@ -32,9 +32,10 @@ src/test/java/workflow
 
 scripts
 
-- demo-run.ps1: automated demo runner script
+- demo-run.ps1: baseline automated demo runner script
+- demo-run-clothing-brand.ps1: realistic clothing brand workflow simulation demo
 - check-requirements.ps1: validates local tooling requirements only
-- team-demo.ps1: team launcher (checks requirements, starts backend/UI, runs demo)
+- team-demo.ps1: team launcher (checks requirements, starts backend/UI, runs clothing brand demo)
 
 ui
 
@@ -88,6 +89,14 @@ Run automated API demo script:
 ```powershell
 .\scripts\demo-run.ps1
 ```
+
+Run realistic company simulation demo (UrbanThread clothing brand):
+
+```powershell
+.\scripts\demo-run-clothing-brand.ps1
+```
+
+This demo script automatically switches credentials per step role (EMPLOYEE, OPERATIONS, MANAGER) so the run reflects role-accurate company operations.
 
 ## Run REST API
 
@@ -143,6 +152,12 @@ Manager-only endpoints:
 
 - `POST /api/instances/{instanceId}/approve`
 - `POST /api/instances/{instanceId}/reject`
+
+Role-matched execution constraints:
+
+- `POST /api/instances/{instanceId}/execute` requires actor role to match the current task `assignedRole`
+- `POST /api/instances/{instanceId}/retry` requires actor role to match the failed current task `assignedRole`
+- `POST /api/workflows` and `POST /api/workflows/{workflowId}/instances` require `EMPLOYEE` or `MANAGER`
 
 - `POST /api/workflows` create workflow definition
 - `POST /api/workflows/{workflowId}/instances` start workflow instance

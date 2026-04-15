@@ -7,3 +7,7 @@ data/
 .idea/
 .vscode/
 *.iml
+node_modules/
+ui/dist/
+ui/node_modules/
+.DS_Store

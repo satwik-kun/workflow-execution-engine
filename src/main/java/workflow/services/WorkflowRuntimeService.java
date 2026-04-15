@@ -88,9 +88,9 @@ public class WorkflowRuntimeService {
         if (!instanceWorkflow.getTasks().isEmpty()) {
             int firstTaskId = instanceWorkflow.getTasks().get(0).getTaskId();
             instance.setCurrentTask(firstTaskId);
-            instance.addHistory("Activated first task: " + firstTaskId);
+            instance.addHistory("Released first production step: " + firstTaskId);
         }
-        instance.addHistory("Workflow instance " + instance.getInstanceId() + " started in state " + instance.getState());
+        instance.addHistory("Work order instance " + instance.getInstanceId() + " started in state " + instance.getState());
 
         persistenceService.save(instance);
         return instance;

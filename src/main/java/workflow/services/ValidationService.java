@@ -2,6 +2,7 @@ package workflow.services;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import org.springframework.stereotype.Service;
@@ -10,6 +11,8 @@ import workflow.models.Workflow;
 
 @Service
 public class ValidationService {
+    private static final Set<String> ALLOWED_ROLES = Set.of("EMPLOYEE", "MANAGER", "OPERATIONS");
+
     public boolean validateWorkflow(Workflow workflow) {
         if (workflow == null) {
             throw new ValidationException("workflow cannot be null");
@@ -30,6 +33,14 @@ public class ValidationService {
 
             if (task.getAssignedRole() == null || task.getAssignedRole().isBlank()) {
                 throw new ValidationException("task " + task.getTaskId() + " has no assigned role");
+            }
+
+            String normalizedRole = task.getAssignedRole().trim().toUpperCase(Locale.ROOT);
+            if (!ALLOWED_ROLES.contains(normalizedRole)) {
+                throw new ValidationException(
+                    "task " + task.getTaskId() + " has unsupported role " + task.getAssignedRole()
+                        + ". Allowed roles: " + ALLOWED_ROLES
+                );
             }
         }
 

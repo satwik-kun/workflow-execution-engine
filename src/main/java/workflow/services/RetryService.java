@@ -27,7 +27,7 @@ public class RetryService {
         Task currentTask = instance.getWorkflow().getTaskById(instance.getCurrentTask());
         if (currentTask == null) {
             instance.setStatus(WorkflowStatus.FAILED);
-            instance.addHistory("Failure handling aborted because there is no active task.");
+            instance.addHistory("Retry handling aborted: no active production step found.");
             return;
         }
 
@@ -36,13 +36,13 @@ public class RetryService {
             int attempt = instance.getRetryCount();
             instance.setStatus(WorkflowStatus.RUNNING);
             instance.addHistory(
-                "Retry attempt " + attempt + " of " + MAX_RETRIES + " for task " + currentTask.getTaskId()
+                "Incident recovery attempt " + attempt + " of " + MAX_RETRIES + " for step " + currentTask.getTaskId()
             );
 
             boolean retrySucceeded = executionService.executeTask(instance);
             if (retrySucceeded) {
                 instance.addHistory(
-                    "Task " + currentTask.getTaskId() + " recovered successfully on retry attempt " + attempt
+                    "Step " + currentTask.getTaskId() + " recovered successfully on attempt " + attempt
                 );
                 return;
             }
@@ -50,8 +50,8 @@ public class RetryService {
 
         instance.setStatus(WorkflowStatus.FAILED);
         instance.addHistory(
-            "Retry limit reached for task " + currentTask.getTaskId() + ". Workflow marked FAILED"
+            "Retry limit reached for step " + currentTask.getTaskId() + ". Work order marked FAILED"
         );
-        instance.addHistory("Failure details: " + instance.getLastFailureDetails());
+        instance.addHistory("Failure report: " + instance.getLastFailureDetails());
     }
 }

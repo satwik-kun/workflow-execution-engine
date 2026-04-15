@@ -33,7 +33,7 @@ public class ExecutionService {
     public void execute(WorkflowInstance workflowInstance) {
         if (workflowInstance != null) {
             workflowInstance.start();
-            workflowInstance.addHistory("Execution service marked instance as RUNNING");
+            workflowInstance.addHistory("Work order moved to RUNNING state by execution service");
         }
     }
 
@@ -43,18 +43,18 @@ public class ExecutionService {
         }
 
         if (instance.getWorkflowStatus() == WorkflowStatus.COMPLETED) {
-            instance.addHistory("Execution skipped because workflow is already COMPLETED");
+            instance.addHistory("Execution skipped: work order already COMPLETED");
             return false;
         }
 
         if (instance.getWorkflowStatus() == WorkflowStatus.FAILED) {
-            instance.addHistory("Execution skipped because workflow is already FAILED");
+            instance.addHistory("Execution skipped: work order already FAILED");
             return false;
         }
 
         Task currentTask = identifyCurrentTask(instance);
         if (currentTask == null) {
-            instance.addHistory("No executable task found for instance " + instance.getInstanceId());
+            instance.addHistory("No executable production step found for instance " + instance.getInstanceId());
             return false;
         }
 
@@ -65,7 +65,12 @@ public class ExecutionService {
         updateTaskState(currentTask, executionStatus);
 
         instance.addHistory(
-            "Task " + currentTask.getTaskId() + " (" + currentTask.getTaskName() + ") executed with status " + executionStatus
+            "Team " + currentTask.getAssignedRole() + " processed step "
+                + currentTask.getTaskId()
+                + " ("
+                + currentTask.getTaskName()
+                + ") with outcome "
+                + executionStatus
         );
 
         if (isSuccess) {
@@ -79,7 +84,7 @@ public class ExecutionService {
         instance.setLastFailureDetails(
             "Task " + currentTask.getTaskId() + " (" + currentTask.getTaskName() + ") failed during execution"
         );
-        instance.addHistory("Task failure recorded. Retry handling may continue execution.");
+        instance.addHistory("Quality gate recorded a failure. Retry policy can continue processing.");
 
         return false;
     }
@@ -100,13 +105,13 @@ public class ExecutionService {
 
         if (nextTaskIds.isEmpty()) {
             instance.setStatus(WorkflowStatus.COMPLETED);
-            instance.addHistory("No next task from " + currentTaskId + ". Workflow marked COMPLETED");
+            instance.addHistory("No downstream step after " + currentTaskId + ". Work order marked COMPLETED");
             return;
         }
 
         int nextTaskId = nextTaskIds.get(0);
         instance.setCurrentTask(nextTaskId);
-        instance.addHistory("Transitioned from task " + currentTaskId + " to task " + nextTaskId);
+        instance.addHistory("Pipeline advanced from step " + currentTaskId + " to step " + nextTaskId);
     }
 
     private Task identifyCurrentTask(WorkflowInstance instance) {
@@ -119,7 +124,7 @@ public class ExecutionService {
         if (currentTaskId < 0) {
             Task firstTask = tasks.get(0);
             instance.setCurrentTask(firstTask.getTaskId());
-            instance.addHistory("Initialized current task to " + firstTask.getTaskId());
+            instance.addHistory("Initialized first production step to " + firstTask.getTaskId());
             if (firstTask.getTaskStatus() == TaskStatus.PENDING) {
                 updateTaskState(firstTask, TaskStatus.PENDING);
             }
