@@ -398,6 +398,83 @@ Good evidence to mention:
 
 - REST API endpoints in `WorkflowApiController`
 - response state changing from RUNNING to COMPLETED or FAILED
+
+## 3. Team Contribution Split for 4 Members
+
+Use this section directly in your rubric presentation to show clear ownership and individual design understanding.
+
+### Member 1: Core Workflow Runtime and Validation
+
+Implemented parts:
+
+- `WorkflowRuntimeService`
+- `ValidationService`
+- workflow creation and instance start flow
+- lifecycle transitions from CREATED to RUNNING to COMPLETED or FAILED
+
+Design principle used: **Single Responsibility Principle (SRP)**
+
+How to explain:
+
+- `ValidationService` only validates workflow correctness.
+- `WorkflowRuntimeService` coordinates runtime actions.
+- separating validation from execution keeps classes focused and testable.
+
+### Member 2: Task Execution and Retry Handling
+
+Implemented parts:
+
+- `ExecutionService`
+- `RetryService`
+- task state changes (`PENDING` to `SUCCESS` or `FAILURE`)
+- retry-count logic and failure threshold handling
+
+Design principle used: **Encapsulation**
+
+How to explain:
+
+- workflow and task state updates happen through methods (`setStatus`, `setCurrentTask`, `incrementRetryCount`, `addHistory`) instead of uncontrolled direct field changes.
+- this protects business invariants during execution and retry.
+
+### Member 3: Approval/Rejection Module with Strategy Pattern
+
+Implemented parts:
+
+- `ApprovalService`
+- `TaskDecisionStrategy`
+- `ApproveTaskDecisionStrategy`
+- `RejectTaskDecisionStrategy`
+- manager approval and rejection API flow
+
+Design principle used: **Open/Closed Principle (OCP)**
+
+How to explain:
+
+- approval decisions are extended using new strategy implementations.
+- existing service code is not heavily modified when adding new decision behavior.
+
+### Member 4: API, Persistence, and UI Integration
+
+Implemented parts:
+
+- controllers (`WorkflowApiController`, `WorkflowController`, `ExecutionController`, `ApprovalController`)
+- repositories (`WorkflowDefinitionRepository`, `WorkflowInstanceRepository`, `WorkflowHistoryRepository`)
+- persistence records under `workflow.persistence`
+- React UI and API client integration in `ui/src/`
+
+Design principle used: **Separation of Concerns (SoC)**
+
+How to explain:
+
+- controllers handle HTTP requests and responses.
+- services run business logic.
+- repositories manage database access.
+- UI handles presentation.
+- each layer has a clean boundary, so changes in one layer minimally affect others.
+
+### Quick Viva Script (30 to 45 seconds)
+
+"Our team split the project into four clear modules. Member 1 handled runtime orchestration and validation using SRP. Member 2 handled execution and retry logic with strong encapsulation of state changes. Member 3 implemented approval and rejection behavior using strategy-based OCP extension. Member 4 integrated controllers, persistence, and UI using separation of concerns across layers. This mapping shows each member contributed both implementation and design reasoning."
 - history entries being added after each step
 - repository-backed persistence
 - validation errors for bad input
