@@ -139,26 +139,23 @@ export default function App() {
       return;
     }
 
-    // If there's an active order, update its status based on instance state or task completion
+    // If there's an active order, update its status based on instance state or all tasks complete
     if (activeOrderIndex !== null) {
-      // Count completed tasks
+      // Check if all tasks are completed (SUCCESS/APPROVED/COMPLETED)
       const totalTasks = updatedInstance.tasks?.length || 0;
       const completedTasks = updatedInstance.tasks?.filter(
         (task) => ["SUCCESS", "APPROVED", "COMPLETED"].includes(task.status)
       ).length || 0;
       
-      // Check if order is complete: either instance is marked COMPLETED/FAILED, or all tasks are done
-      const isComplete =
-        updatedInstance.state === "COMPLETED" ||
+      const isComplete = 
+        updatedInstance.state === "COMPLETED" || 
         updatedInstance.state === "FAILED" ||
         (totalTasks > 0 && completedTasks === totalTasks);
       
-      if (isComplete && orderQueue[activeOrderIndex]?.queueStatus === "IN_PROGRESS") {
+      if (isComplete) {
         setOrderQueue((prev) => {
           const copy = [...prev];
           const current = { ...copy[activeOrderIndex] };
-          
-          // Determine status
           const isFailed = updatedInstance.state === "FAILED" || (completedTasks < totalTasks);
           current.queueStatus = isFailed ? "FAILED" : "COMPLETED";
           current.instanceId = updatedInstance.instanceId;
@@ -175,7 +172,7 @@ export default function App() {
           return copy;
         });
 
-        if (updatedInstance.state !== "FAILED" && completedTasks === totalTasks) {
+        if (completedTasks === totalTasks && updatedInstance.state !== "FAILED") {
           const nextPosition = activeOrderIndex + 2;
           if (nextPosition <= orderQueue.length) {
             setMessage(`Order #${activeOrderIndex + 1} completed. Queue moved to #${nextPosition}.`);
