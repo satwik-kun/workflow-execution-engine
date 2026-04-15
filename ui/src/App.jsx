@@ -135,41 +135,47 @@ export default function App() {
   };
 
   const markQueueProgress = (updatedInstance) => {
-    if (activeOrderIndex === null || !updatedInstance) {
+    if (!updatedInstance) {
       return;
     }
 
-    if (updatedInstance.state !== "COMPLETED" && updatedInstance.state !== "FAILED") {
-      return;
-    }
+    // If there's an active order, update its status based on instance state
+    if (activeOrderIndex !== null) {
+      const isComplete = updatedInstance.state === "COMPLETED" || updatedInstance.state === "FAILED";
+      
+      if (isComplete) {
+        setOrderQueue((prev) => {
+          const copy = [...prev];
+          const current = { ...copy[activeOrderIndex] };
+          current.queueStatus = updatedInstance.state === "COMPLETED" ? "COMPLETED" : "FAILED";
+          current.instanceId = updatedInstance.instanceId;
+          copy[activeOrderIndex] = current;
 
-    setOrderQueue((prev) => {
-      const copy = [...prev];
-      const current = { ...copy[activeOrderIndex] };
-      current.queueStatus = updatedInstance.state === "COMPLETED" ? "COMPLETED" : "FAILED";
-      current.instanceId = updatedInstance.instanceId;
-      copy[activeOrderIndex] = current;
+          // Unlock next order if current one completed
+          if (updatedInstance.state === "COMPLETED") {
+            const nextIdx = activeOrderIndex + 1;
+            if (nextIdx < copy.length && copy[nextIdx].queueStatus === "LOCKED") {
+              copy[nextIdx] = { ...copy[nextIdx], queueStatus: "READY" };
+            }
+          }
 
-      if (updatedInstance.state === "COMPLETED") {
-        const nextIdx = activeOrderIndex + 1;
-        if (nextIdx < copy.length && copy[nextIdx].queueStatus === "LOCKED") {
-          copy[nextIdx] = { ...copy[nextIdx], queueStatus: "READY" };
+          return copy;
+        });
+
+        if (updatedInstance.state === "COMPLETED") {
+          const nextPosition = activeOrderIndex + 2;
+          if (nextPosition <= orderQueue.length) {
+            setMessage(`Order #${activeOrderIndex + 1} completed. Queue moved to #${nextPosition}.`);
+          } else {
+            setMessage("All live orders completed.");
+          }
+        } else {
+          setMessage(`Order #${activeOrderIndex + 1} failed.`);
         }
-      }
 
-      return copy;
-    });
-
-    if (updatedInstance.state === "COMPLETED") {
-      const nextPosition = activeOrderIndex + 2;
-      if (nextPosition <= orderQueue.length) {
-        setMessage(`Order completed. Queue moved to #${nextPosition}.`);
-      } else {
-        setMessage("All live orders completed.");
+        setActiveOrderIndex(null);
       }
     }
-
-    setActiveOrderIndex(null);
   };
 
   const startNextQueueOrder = async () => {
@@ -227,6 +233,21 @@ export default function App() {
     const data = await run("Instance refreshed", () => getWorkflowInstance(instance.instanceId, auth));
     setInstance(data);
     markQueueProgress(data);
+  };
+
+  const unlockNextQueueOrder = () => {
+    if (activeOrderIndex === null) return;
+    
+    const nextIdx = activeOrderIndex + 1;
+    if (nextIdx < orderQueue.length && orderQueue[nextIdx].queueStatus === "LOCKED") {
+      setOrderQueue((prev) => {
+        const copy = [...prev];
+        copy[nextIdx] = { ...copy[nextIdx], queueStatus: "READY" };
+        return copy;
+      });
+      setActiveOrderIndex(null);
+      setMessage(`Manually unlocked queue order #${nextIdx + 1}`);
+    }
   };
 
   const callInstanceAction = async (requestFn, successLabel) => {
@@ -298,6 +319,14 @@ export default function App() {
               Start Next Queue Order
             </button>
             <button onClick={refresh} disabled={busy || !instance}>Refresh Active Order</button>
+            <button
+              onClick={unlockNextQueueOrder}
+              disabled={activeOrderIndex === null}
+              style={{ opacity: 0.7 }}
+              title="Manual recovery: unlock next order if current one is stuck"
+            >
+              Unlock Next Order (Recovery)
+            </button>
           </div>
           {activeQueueOrder && (
             <p className="meta">
