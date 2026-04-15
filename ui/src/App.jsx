@@ -139,20 +139,33 @@ export default function App() {
       return;
     }
 
-    // If there's an active order, update its status based on instance state
+    // If there's an active order, update its status based on instance state or task completion
     if (activeOrderIndex !== null) {
-      const isComplete = updatedInstance.state === "COMPLETED" || updatedInstance.state === "FAILED";
+      // Count completed tasks
+      const totalTasks = updatedInstance.tasks?.length || 0;
+      const completedTasks = updatedInstance.tasks?.filter(
+        (task) => ["SUCCESS", "APPROVED", "COMPLETED"].includes(task.status)
+      ).length || 0;
       
-      if (isComplete) {
+      // Check if order is complete: either instance is marked COMPLETED/FAILED, or all tasks are done
+      const isComplete =
+        updatedInstance.state === "COMPLETED" ||
+        updatedInstance.state === "FAILED" ||
+        (totalTasks > 0 && completedTasks === totalTasks);
+      
+      if (isComplete && orderQueue[activeOrderIndex]?.queueStatus === "IN_PROGRESS") {
         setOrderQueue((prev) => {
           const copy = [...prev];
           const current = { ...copy[activeOrderIndex] };
-          current.queueStatus = updatedInstance.state === "COMPLETED" ? "COMPLETED" : "FAILED";
+          
+          // Determine status
+          const isFailed = updatedInstance.state === "FAILED" || (completedTasks < totalTasks);
+          current.queueStatus = isFailed ? "FAILED" : "COMPLETED";
           current.instanceId = updatedInstance.instanceId;
           copy[activeOrderIndex] = current;
 
-          // Unlock next order if current one completed
-          if (updatedInstance.state === "COMPLETED") {
+          // Unlock next order if current one completed successfully
+          if (!isFailed) {
             const nextIdx = activeOrderIndex + 1;
             if (nextIdx < copy.length && copy[nextIdx].queueStatus === "LOCKED") {
               copy[nextIdx] = { ...copy[nextIdx], queueStatus: "READY" };
@@ -162,7 +175,7 @@ export default function App() {
           return copy;
         });
 
-        if (updatedInstance.state === "COMPLETED") {
+        if (updatedInstance.state !== "FAILED" && completedTasks === totalTasks) {
           const nextPosition = activeOrderIndex + 2;
           if (nextPosition <= orderQueue.length) {
             setMessage(`Order #${activeOrderIndex + 1} completed. Queue moved to #${nextPosition}.`);
